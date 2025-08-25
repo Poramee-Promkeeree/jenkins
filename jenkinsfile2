@@ -1,0 +1,102 @@
+pipeline {
+  agent any
+
+  parameters {
+    booleanParam(
+      name: 'RUN_DEPLOY',
+      defaultValue: true,
+      description: 'Should we deploy?'
+    )
+    choice(
+      name: 'ENV',
+      choices: ['dev', 'staging', 'prod'],
+      description: 'Target environment'
+    )
+  }
+
+  stages {
+
+    stage('Build') {
+      steps {
+        echo 'Building application...'
+        sh 'sleep 2' // mock build
+      }
+    }
+
+    stage('Tests (Parallel)') {
+      parallel {
+        stage('Unit Tests') {
+          steps {
+            echo 'Running unit tests...'
+            sh 'echo "All unit tests passed!" > unit_results.txt'
+            sh 'sleep 2'
+          }
+        }
+
+        stage('Integration Tests') {
+          steps {
+            echo 'Running integration tests...'
+            sh 'echo "All integration tests passed!" > integration_results.txt'
+            sh 'sleep 2'
+          }
+        }
+
+        // Exercise: simulate testing on Linux
+        stage('Simulate Linux Tests') {
+          steps {
+            echo 'Simulating tests on Linux...'
+            sh 'echo "Linux test OK" > linux_results.txt'
+          }
+        }
+
+        // Exercise: simulate testing on Windows
+        stage('Simulate Windows Tests') {
+          steps {
+            echo 'Simulating tests on Windows...'
+            sh 'echo "Windows test OK" > windows_results.txt'
+          }
+        }
+      }
+    }
+
+    stage('Archive Artifacts') {
+      steps {
+        archiveArtifacts artifacts: 'unit_results.txt,integration_results.txt,linux_results.txt,windows_results.txt',
+                         fingerprint: true
+      }
+    }
+
+    // Manual approval with timeout (auto-fail after 2 minutes)
+    stage('Approval') {
+      steps {
+        script {
+          timeout(time: 2, unit: 'MINUTES') {
+            input message: "Approve deployment to ${params.ENV}?"
+          }
+        }
+      }
+    }
+
+    stage('Deploy') {
+      when {
+        expression { return params.RUN_DEPLOY }
+      }
+      steps {
+        echo "Deploying application to ${params.ENV}..."
+        sh 'sleep 1' // mock deploy
+      }
+    }
+  }
+
+  post {
+    success {
+      echo '✅ Pipeline finished successfully!'
+    }
+    failure {
+      echo '❌ Pipeline failed. Check logs!'
+    }
+    always {
+      echo 'Pipeline completed (success or failure).'
+    }
+  }
+}
